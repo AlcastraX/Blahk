@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<style>
+html,body {
+    width: 100vw;
+    height:100vh;
+    margin:0;
+    padding:0;
+    display:flex;
+    position: relative;
+}
+.SaveLoadMenu {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fdfdfb;
+    border: 4px solid #111;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.9);
+    min-width: 50rem;
+    aspect-ratio: 16/9;
+    padding: 16px;
+    display: none;
+    flex-direction: column;
+    overflow-y:scroll;
+}
+
+.SaveLoadHeader {
+    border: 3px solid #111;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-family: 'Caveat', cursive;
+    font-size: 1.8rem;
+    color: #111;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.item-split {
+    display: grid;
+    grid-template-columns: 0.8fr auto auto auto;
+    align-items: center;
+    gap: 1.5rem;
+    color: #111;
+    height: 3rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 2px solid #111;
+    position: relative;
+    transition: background 0.15s ease;
+}
+.item-split:last-child {
+    border-bottom: none;
+}
+.item-split:hover {
+    background-color: rgba(122, 20, 20, 0.06);
+}
+
+.item-text {
+    cursor: pointer;
+    font-family: 'Courier Prime', monospace;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    color: #444;
+    transition: color 0.15s ease;
+}
+.item-text:hover {
+    color: #7a1414;
+    background-color:rgba(200, 200, 200, 0.603)
+}
+.SaveLoad {
+    cursor:pointer;
+    z-index:99;
+}
+.SaveLoadMenu.open {
+    display: flex;
+}
+.ConfirmWarning {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+}
+.ConfirmWarning.open {
+    display: flex;
+}
+.ConfirmBox {
+    background: #fdfdfb;
+    border: 4px solid #7a1414;
+    box-shadow: 6px 6px 0 rgba(0,0,0,0.9);
+    padding: 24px;
+    max-width: 320px;
+    text-align: center;
+}   
+.ConfirmText {
+    margin: 0 0 16px;
+    color: #111;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.9rem;
+}
+.ConfirmActions {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+#confirmYes { color: #7a1414; font-weight: bold; }
+</style>
+</head>
+<body>
+    <div class="ConfirmWarning">
+    <div class="ConfirmBox">
+        <p class="ConfirmText">Erase this save? This can't be undone.</p>
+        <div class="ConfirmActions">
+            <span class="item-text" id="confirmYes">YES SIR</span>
+            <span class="item-text" id="confirmNo">PLS NO</span>
+        </div>
+    </div>
+</div>
+    <div id="SaveLoadWrapper">
+        <img class="SaveLoad" src="https://img.icons8.com/?size=100&id=13279&format=png&color=000000">
+        <div class="SaveLoadMenu">
+            <div class="SaveLoadHeader">SAVE DATA</div>
+            <div class="SaveLoadList"></div>
+        </div>
+    </div>
+
+
+<script>
+const SAVE_PREFIX = 'stratmaker_save_';
+const MAX_SLOTS = 10;
+const toggle = true
+const MenuButton = document.querySelector('.SaveLoad')
+const SaveLoadMenu = document.querySelector('.SaveLoadMenu')
+const open = document.querySelector('.open')
+const SaveLoad = document.querySelector('.SaveLoadList')
+const ConfirmWarning = document.querySelector('.ConfirmWarning')
+const confirmYes = document.getElementById('confirmYes')
+const confirmNo = document.getElementById('confirmNo')
+let slotToDelete = null
+MenuButton.addEventListener('click', () => {
+    SaveLoadMenu.classList.toggle('open')
+})
+function saveToSlot(slotNumber, workspace) {
+    if (slotNumber < 1 || slotNumber > MAX_SLOTS) {
+        console.error('Slot must 1-5');
+        return;
+    }
+    const state = Blockly.serialization.workspaces.save(workspace);
+    const data = {
+        state: state,
+        timestamp: new Date().toISOString(),
+        name: `Save ${slotNumber}`
+    };
+    localStorage.setItem(SAVE_PREFIX + slotNumber, JSON.stringify(data));
+    console.log(`Saved to Slot ${slotNumber}`);
+    renderSlots()
+}
+
+function loadFromSlot(slotNumber, workspace) {
+    const raw = localStorage.getItem(SAVE_PREFIX + slotNumber);
+    if (!raw) {
+        console.warn(`Slot ${slotNumber} is Empty`);
+        return false;
+    }
+    const data = JSON.parse(raw);
+    workspace.clear(); 
+    Blockly.serialization.workspaces.load(data.state, workspace);
+    console.log(`Loaded from slot ${slotNumber}, saved: ${data.timestamp}`);
+    renderSlots()
+    return true;
+}
+
+function deleteSlot(slotNumber) {
+    localStorage.removeItem(SAVE_PREFIX + slotNumber);
+}
+
+function getSlotInfo(slotNumber) {
+    const raw = localStorage.getItem(SAVE_PREFIX + slotNumber);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return { name: data.name, timestamp: data.timestamp};
+}
+function formatTime(isoString) {
+    const d = new Date(isoString);
+    return d.toLocaleString(undefined, { 
+        month: 'short', day: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+    });
+}
+function renderSlots() {
+    SaveLoad.innerHTML = '';
+    for (let i = 1; i <= MAX_SLOTS ; i++) {
+        const info = getSlotInfo(i);
+        const div = document.createElement('div');
+        div.className = 'item-split';
+        
+        const label = info 
+            ? `Slot ${i} — ${formatTime(info.timestamp)}` 
+            : `Slot ${i} — empty`;
+        
+        div.innerHTML += `
+            <span class="item-text">${label}</span>
+            <span class="item-text" onclick="saveToSlot(${i})">Save</span>
+            <span class="item-text" onclick="loadFromSlot(${i})">Load</span>
+            <span class="item-text" onclick="askDelete(${i})">Erase</span>
+        `;
+        SaveLoad.appendChild(div);
+    }
+}
+function askDelete(slotNumber) {
+    slotToDelete = slotNumber
+    ConfirmWarning.classList.add('open')
+}
+
+confirmYes.addEventListener('click', () => {
+    if (slotToDelete !== null) {
+        deleteSlot(slotToDelete)
+        renderSlots()
+    }
+    ConfirmWarning.classList.remove('open')
+})
+
+confirmNo.addEventListener('click', () => {
+    ConfirmWarning.classList.remove('open')
+})
+renderSlots() 
+
+</script>
+</body>
+</html>
