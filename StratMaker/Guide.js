@@ -345,7 +345,7 @@ TDS: [
                What's passive? passive is like DJ track and merc unit queues!
                <code>TDSmacro.ChangePassive(1, true, 3)</code>
                The code up there will click the 3rd tower passive (Red track/Riots).
-               <img src="../images/Merc.png">`
+               <img src="images/Merc.png">`
     },
     {
         name: "Use Ability [Key]",
